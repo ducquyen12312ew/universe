@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import QRCode from "react-qr-code";
 import {
@@ -26,7 +26,10 @@ function CopyIcon() {
 function ScanCorner({ position }: { position: "tl" | "tr" | "bl" | "br" }) {
   const s = 3;
   const sz = 22;
-  const base: React.CSSProperties = { position: "absolute", width: sz, height: sz, borderColor: "#444", borderStyle: "solid", borderWidth: 0 };
+  const base: React.CSSProperties = {
+    position: "absolute", width: sz, height: sz,
+    borderColor: "#444", borderStyle: "solid", borderWidth: 0,
+  };
   const map: Record<string, React.CSSProperties> = {
     tl: { top: 0, left: 0, borderTopWidth: s, borderLeftWidth: s },
     tr: { top: 0, right: 0, borderTopWidth: s, borderRightWidth: s },
@@ -36,20 +39,22 @@ function ScanCorner({ position }: { position: "tl" | "tr" | "bl" | "br" }) {
   return <div style={{ ...base, ...map[position] }} />;
 }
 
-/* ─── Payment state UI (right panel overlay) ─── */
+/* ─── Right panel state overlay ─── */
 function PaymentStatePanel({ state }: { state: PaymentState }) {
   return (
     <div className="flex flex-col items-center justify-center flex-1 gap-5 py-10">
       {state === "loading" && (
         <>
           <div
-            className="w-16 h-16 rounded-full border-4 border-t-transparent animate-spin"
+            className="w-16 h-16 rounded-full border-4 animate-spin"
             style={{ borderColor: "#4caf50", borderTopColor: "transparent" }}
           />
-          <p className="text-base text-gray-600 text-center font-medium">
-            Đang xác nhận thanh toán...
-          </p>
-          <p className="text-sm text-gray-400">Vui lòng chờ trong giây lát</p>
+          <div className="text-center">
+            <p className="text-base text-gray-700 font-semibold mb-1">
+              Đang kiểm tra giao dịch...
+            </p>
+            <p className="text-sm text-gray-400">Vui lòng chờ trong giây lát</p>
+          </div>
         </>
       )}
 
@@ -64,17 +69,18 @@ function PaymentStatePanel({ state }: { state: PaymentState }) {
             </svg>
           </div>
           <div className="text-center">
-            <p className="text-base font-semibold text-gray-800 mb-1">Payment received</p>
-            <p className="text-sm text-gray-500">Processing subscription...</p>
-          </div>
-          <div className="flex gap-1 mt-2">
-            {[0, 1, 2].map((i) => (
-              <div
-                key={i}
-                className="w-2 h-2 rounded-full animate-bounce"
-                style={{ backgroundColor: "#4caf50", animationDelay: `${i * 0.15}s` }}
-              />
-            ))}
+            <p className="text-base font-semibold text-gray-800 mb-1">
+              Đang xác nhận gói dịch vụ...
+            </p>
+            <div className="flex gap-1 justify-center mt-2">
+              {[0, 1, 2].map((i) => (
+                <div
+                  key={i}
+                  className="w-2 h-2 rounded-full animate-bounce"
+                  style={{ backgroundColor: "#4caf50", animationDelay: `${i * 0.15}s` }}
+                />
+              ))}
+            </div>
           </div>
         </>
       )}
@@ -109,8 +115,9 @@ export default function VietQRPage() {
   const [timeLeft, setTimeLeft] = useState(COUNTDOWN_SECONDS);
   const [copied, setCopied] = useState(false);
   const [paymentState, setPaymentState] = useState<PaymentState>("idle");
+  const triggered = useRef(false);
 
-  /* Build QR URL with window.location.origin on client */
+  /* Build QR URL on client */
   useEffect(() => {
     const params = new URLSearchParams({
       amount: String(STANDARD_PRICE_VND),
@@ -122,34 +129,31 @@ export default function VietQRPage() {
     setQrUrl(`${window.location.origin}/payment/mobile?${params.toString()}`);
   }, [transactionId]);
 
-  /* Countdown timer */
+  /* Countdown */
   useEffect(() => {
     if (timeLeft <= 0 || paymentState !== "idle") return;
     const t = setInterval(() => setTimeLeft((v) => Math.max(0, v - 1)), 1000);
     return () => clearInterval(t);
   }, [timeLeft, paymentState]);
 
-  /* Start success animation sequence */
+  /* Idempotent success flow */
   const startPaymentFlow = useCallback(() => {
-    if (paymentState !== "idle") return;
+    if (triggered.current) return;
+    triggered.current = true;
     setPaymentState("loading");
     setTimeout(() => setPaymentState("processing"), 10000);
     setTimeout(() => {
       setPaymentState("success");
       localStorage.setItem("plan", "pro");
-      setTimeout(() => router.push("/apps/overleaf/editor"), 2500);
+      localStorage.setItem("paymentStatus", "success");
+      setTimeout(() => router.push("/apps/overleaf/editor"), 2000);
     }, 15000);
-  }, [paymentState, router]);
+  }, [router]);
 
-  /* Listen for payment completion from mobile tab (storage event) */
+  /* Same-browser cross-tab sync (mobile banking page on same device) */
   useEffect(() => {
     const key = `payment_complete_${transactionId}`;
-
-    /* Same-tab check (dev convenience) */
-    if (localStorage.getItem(key) === "true") {
-      startPaymentFlow();
-      return;
-    }
+    if (localStorage.getItem(key) === "true") { startPaymentFlow(); return; }
 
     const handler = (e: StorageEvent) => {
       if (e.key === key && e.newValue === "true") startPaymentFlow();
@@ -257,6 +261,7 @@ export default function VietQRPage() {
                 <PaymentStatePanel state={paymentState} />
               ) : (
                 <>
+                  {/* QR code */}
                   <div className="relative mb-5" style={{ padding: 16 }}>
                     <ScanCorner position="tl" />
                     <ScanCorner position="tr" />
@@ -265,11 +270,10 @@ export default function VietQRPage() {
 
                     {expired || !qrUrl ? (
                       <div className="flex items-center justify-center bg-gray-100 rounded" style={{ width: 220, height: 220 }}>
-                        {!qrUrl ? (
-                          <div className="w-8 h-8 border-2 border-gray-300 border-t-transparent rounded-full animate-spin" />
-                        ) : (
-                          <div className="text-center"><div className="text-3xl mb-2">⛔</div><p className="text-sm text-gray-500">QR hết hạn</p></div>
-                        )}
+                        {!qrUrl
+                          ? <div className="w-8 h-8 border-2 border-gray-300 border-t-transparent rounded-full animate-spin" />
+                          : <div className="text-center"><div className="text-3xl mb-2">⛔</div><p className="text-sm text-gray-500">QR hết hạn</p></div>
+                        }
                       </div>
                     ) : (
                       <QRCode value={qrUrl} size={220} level="H" style={{ display: "block" }} />
@@ -277,27 +281,39 @@ export default function VietQRPage() {
                   </div>
 
                   {/* Bank info */}
-                  <div className="text-center mb-3">
+                  <div className="text-center mb-4">
                     <p className="text-sm mb-1" style={{ color: "#1a7f9c" }}>{BANK_NAME}</p>
                     <p className="text-base font-bold text-gray-900 mb-1">{ACCOUNT_NAME}</p>
-                    <button onClick={handleCopy} className="flex items-center gap-1.5 mx-auto text-sm transition-colors" style={{ color: "#1a7f9c" }}>
+                    <button onClick={handleCopy} className="flex items-center gap-1.5 mx-auto text-sm" style={{ color: "#1a7f9c" }}>
                       <span className="font-mono">{accountRef}</span>
-                      {copied ? (
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="#4caf50"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17Z" /></svg>
-                      ) : (
-                        <CopyIcon />
-                      )}
+                      {copied
+                        ? <svg width="16" height="16" viewBox="0 0 24 24" fill="#4caf50"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17Z" /></svg>
+                        : <CopyIcon />
+                      }
                     </button>
                   </div>
+
+                  {/* ── "Đã thanh toán" button ── */}
+                  {!expired && (
+                    <button
+                      onClick={startPaymentFlow}
+                      className="w-full py-3 rounded-lg text-sm font-semibold text-white transition-colors"
+                      style={{ backgroundColor: "#4caf50" }}
+                      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#45a049")}
+                      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#4caf50")}
+                    >
+                      ✓ Đã thanh toán
+                    </button>
+                  )}
 
                   {/* Demo link */}
                   <div className="mt-3 pt-3 border-t w-full text-center" style={{ borderColor: "#eee" }}>
                     <button
                       onClick={openMobilePage}
-                      className="text-xs underline transition-colors hover:opacity-70"
+                      className="text-xs underline hover:opacity-70 transition-colors"
                       style={{ color: "#1a7f9c" }}
                     >
-                      ↗ Mở trang thanh toán (demo)
+                      ↗ Mở trang thanh toán demo
                     </button>
                   </div>
                 </>
@@ -307,7 +323,10 @@ export default function VietQRPage() {
         </div>
 
         {/* Cancel */}
-        <button onClick={() => router.push("/apps/overleaf/upgrade/payment")} className="mt-8 flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 transition-colors">
+        <button
+          onClick={() => router.push("/apps/overleaf/upgrade/payment")}
+          className="mt-8 flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 transition-colors"
+        >
           <span>×</span><span>Hủy giao dịch</span>
         </button>
       </main>
