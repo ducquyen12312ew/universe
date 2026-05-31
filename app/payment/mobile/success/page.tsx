@@ -19,7 +19,7 @@ interface TxData {
   orderId: string;
 }
 
-function formatVNDSuccess(n: number): string {
+function formatAmount(n: number): string {
   return n.toLocaleString("en-US");
 }
 
@@ -33,17 +33,30 @@ function formatTimestamp(): string {
   return `${hh}:${mm} ${dd}/${mo}/${yyyy}`;
 }
 
-/* ─── Decorative floating coin ─── */
-function CoinIcon({ size = 36, opacity = 0.08 }: { size?: number; opacity?: number }) {
+/* ─── Coin watermark ─── */
+function Coin({
+  size,
+  top,
+  right,
+  opacity = 0.07,
+}: {
+  size: number;
+  top: number | string;
+  right: number | string;
+  opacity?: number;
+}) {
   return (
     <div
-      className="rounded-full border flex items-center justify-center font-bold"
+      className="absolute pointer-events-none rounded-full flex items-center justify-center"
       style={{
         width: size,
         height: size,
-        borderColor: `rgba(100,100,100,${opacity * 2})`,
-        color: `rgba(100,100,100,${opacity * 2})`,
-        fontSize: size * 0.45,
+        top,
+        right,
+        border: `${size > 32 ? 2 : 1.5}px solid rgba(80,80,80,${opacity * 1.5})`,
+        color: `rgba(80,80,80,${opacity * 1.5})`,
+        fontSize: size * 0.44,
+        fontWeight: 500,
         opacity,
       }}
     >
@@ -52,123 +65,176 @@ function CoinIcon({ size = 36, opacity = 0.08 }: { size?: number; opacity?: numb
   );
 }
 
-/* ─── Main screen content ─── */
-function SuccessContent({ tx, timestamp, txRef }: { tx: TxData; timestamp: string; txRef: string }) {
+/* ─── Northwest back arrow SVG (thin stroke only, no fill) ─── */
+function BackArrow() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <path d="M13 13L3 3" stroke="#1a1a1a" strokeWidth="1.6" strokeLinecap="round" />
+      <path d="M3 3H10" stroke="#1a1a1a" strokeWidth="1.6" strokeLinecap="round" />
+      <path d="M3 3V10" stroke="#1a1a1a" strokeWidth="1.6" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+/* ─── Main screen ─── */
+function SuccessContent({
+  tx,
+  timestamp,
+  txRef,
+}: {
+  tx: TxData;
+  timestamp: string;
+  txRef: string;
+}) {
   const router = useRouter();
 
+  /* ── Type tokens ── */
+  /* Label: "Từ tài khoản", "Tới tài khoản", "Lời nhắn", "Mã giao dịch" */
+  const label: React.CSSProperties = {
+    fontSize: 13,
+    fontWeight: 400,
+    color: "#94a3b8",
+    lineHeight: 1.5,
+    marginBottom: 12,   /* label → first line of content: 12px */
+  };
+  /* Primary name line */
+  const mainName: React.CSSProperties = {
+    fontSize: 19,
+    fontWeight: 700,
+    color: "#0F172A",
+    lineHeight: 1.35,
+    marginBottom: 6,    /* name → next detail line: 6px */
+  };
+  /* Secondary detail lines (bank, account) */
+  const detail: React.CSSProperties = {
+    fontSize: 13,
+    fontWeight: 400,
+    color: "#64748b",
+    lineHeight: 1.6,
+    marginBottom: 2,
+  };
+
   return (
-    <div
-      className="relative w-full h-full overflow-y-auto"
-      style={{
-        backgroundImage: "url('/image/bg.png')",
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-        backgroundColor: "#f2f2f2",
-      }}
-    >
-      {/* Decorative coins */}
-      <div className="absolute top-14 right-14 pointer-events-none">
-        <CoinIcon size={40} opacity={0.08} />
-      </div>
-      <div className="absolute top-40 right-6 pointer-events-none">
-        <CoinIcon size={28} opacity={0.06} />
-      </div>
-      <div className="absolute top-80 right-20 pointer-events-none">
-        <CoinIcon size={20} opacity={0.05} />
-      </div>
+    <div className="relative w-full h-full overflow-hidden" style={{ backgroundColor: "#f5f6f7" }}>
+      {/* Background image on its own layer so filter doesn't bleed into text */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          backgroundImage: "url('/image/bg.png')",
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          filter: "contrast(1.35) brightness(1.04) saturate(0.7)",
+        }}
+      />
 
-      {/* Scrollable content */}
-      <div className="relative px-8 pt-10 pb-14">
+      {/* Coin watermarks — match reference positions */}
+      <Coin size={44} top={48}  right={52}  opacity={0.07} />
+      <Coin size={30} top={118} right={16}  opacity={0.06} />
+      <Coin size={20} top={290} right={36}  opacity={0.055} />
 
-        {/* Back button */}
-        <div className="mb-8">
-          <button
-            onClick={() => router.push("/apps/overleaf/editor")}
-            className="w-16 h-16 rounded-full border-2 border-gray-800 flex items-center justify-center hover:bg-black/5 transition-colors"
-          >
-            <img
-              src="/image/arrow.png"
-              alt="Back"
-              className="w-7 h-7 object-contain"
-              onError={(e) => {
-                e.currentTarget.style.display = "none";
-                (e.currentTarget.nextElementSibling as HTMLElement | null)?.removeAttribute("hidden");
-              }}
-            />
-            {/* Fallback arrow */}
-            <span hidden>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" className="text-gray-800">
-                <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2Z" />
-              </svg>
-            </span>
-          </button>
-        </div>
+      {/* Scrollable content sits above background */}
+      <div
+        className="relative h-full overflow-y-auto"
+        style={{ padding: "30px 28px 72px" }}
+      >
 
-        {/* Techcombank logo */}
-        <div className="mb-8">
+        {/* ── Back button ── */}
+        <button
+          onClick={() => router.push("/apps/overleaf/editor")}
+          className="flex items-center justify-center"
+          style={{
+            width: 48,
+            height: 48,
+            borderRadius: "50%",
+            border: "1.5px solid #1a1a1a",
+            backgroundColor: "transparent",
+            marginBottom: 32,
+            flexShrink: 0,
+          }}
+        >
+          <BackArrow />
+        </button>
+
+        {/* ── Techcombank logo ── */}
+        <div style={{ marginBottom: 24 }}>
           <img
             src="/image/bank/techfull.png"
             alt="Techcombank"
-            className="h-10 object-contain object-left"
+            style={{ height: 28, objectFit: "contain", objectPosition: "left", display: "block" }}
             onError={(e) => {
-              e.currentTarget.style.display = "none";
-              (e.currentTarget.nextElementSibling as HTMLElement | null)?.removeAttribute("hidden");
+              const el = e.currentTarget;
+              el.style.display = "none";
+              const next = el.nextElementSibling as HTMLElement | null;
+              if (next) next.style.display = "flex";
             }}
           />
-          {/* Fallback */}
-          <div style={{ display: "none" }} className="flex items-center gap-2">
-            <span className="text-2xl font-black tracking-tight" style={{ color: "#e40000" }}>
-              TECHCOM<span style={{ color: "#e40000" }}>BANK</span>
+          {/* Fallback text logo */}
+          <div style={{ display: "none", alignItems: "center", gap: 4 }}>
+            <span style={{ color: "#e40000", fontWeight: 900, fontSize: 22, letterSpacing: "-0.5px" }}>
+              TECHCOM
             </span>
-            <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-              <path d="M14 2L7 9H2l5 6-2 9 9-4 9 4-2-9 5-6h-5L14 2Z" fill="#e40000" />
+            <span style={{ color: "#e40000", fontWeight: 900, fontSize: 22 }}>BANK</span>
+            <svg width="26" height="26" viewBox="0 0 26 26" fill="none" style={{ marginLeft: 4 }}>
+              <polygon points="13,1 5,8 1,8 8,16 6,25 13,21 20,25 18,16 25,8 21,8" fill="#e40000" />
             </svg>
           </div>
         </div>
 
-        {/* Amount */}
-        <div className="flex items-baseline gap-1.5 mb-1">
-          <span className="text-2xl text-gray-400 font-normal">-VND</span>
-          <span className="text-5xl font-extrabold text-gray-900 leading-none">
-            {formatVNDSuccess(tx.amount)}
+        {/* ── Amount ── */}
+        <div style={{ lineHeight: 1, marginBottom: 6 }}>
+          <span style={{ color: "#94a3b8", fontSize: 20, fontWeight: 400, marginRight: 6 }}>
+            -VND
+          </span>
+          <span style={{ color: "#0F172A", fontSize: 40, fontWeight: 600, lineHeight: 1 }}>
+            {formatAmount(tx.amount)}
           </span>
         </div>
 
-        {/* Timestamp */}
-        <p className="text-sm text-gray-400 mb-10">{timestamp}</p>
+        {/* ── Timestamp ── */}
+        <p style={{ fontSize: 13, fontWeight: 400, color: "#94a3b8", lineHeight: 1.5, marginBottom: 36 }}>
+          {timestamp}
+        </p>
 
-        {/* From */}
-        <div className="mb-7">
-          <p className="text-sm text-gray-400 mb-1.5">Từ tài khoản</p>
-          <p className="text-xl font-extrabold text-gray-900 leading-tight mb-0.5">PHAN DUC QUYEN</p>
-          <p className="text-sm text-gray-500">Techcombank</p>
-          <p className="text-sm text-gray-500">{SOURCE_ACCOUNT}</p>
+        {/* ── From ── */}
+        <div style={{ marginBottom: 36 }}>
+          <p style={label}>Từ tài khoản</p>
+          <p style={mainName}>PHAN DUC QUYEN</p>
+          <p style={detail}>Techcombank</p>
+          <p style={{ ...detail, marginBottom: 0 }}>{SOURCE_ACCOUNT}</p>
         </div>
 
-        {/* To */}
-        <div className="mb-7">
-          <p className="text-sm text-gray-400 mb-1.5">Tới tài khoản</p>
-          <p className="text-xl font-extrabold text-gray-900 leading-tight mb-0.5">{tx.accountName}</p>
-          <p className="text-sm text-gray-500 uppercase leading-snug">{tx.bankName}</p>
-          <p className="text-sm text-gray-500">{tx.account}</p>
+        {/* ── To ── */}
+        <div style={{ marginBottom: 36 }}>
+          <p style={label}>Tới tài khoản</p>
+          <p style={mainName}>{tx.accountName}</p>
+          <p style={{ ...detail, textTransform: "uppercase" }}>{tx.bankName}</p>
+          <p style={{ ...detail, marginBottom: 0 }}>{tx.account}</p>
         </div>
 
-        {/* Message */}
-        <div className="mb-7">
-          <p className="text-sm text-gray-400 mb-1.5">Lời nhắn</p>
-          <p className="text-base font-extrabold text-gray-900">{tx.message}</p>
+        {/* ── Message ── */}
+        <div style={{ marginBottom: 40 }}>
+          <p style={label}>Lời nhắn</p>
+          <p style={{ fontSize: 17, fontWeight: 700, color: "#0F172A", lineHeight: 1.4 }}>
+            {tx.message}
+          </p>
         </div>
 
-        {/* Transaction ref */}
+        {/* ── Transaction ref — standalone block ── */}
         <div>
-          <p className="text-sm font-bold text-gray-800">Mã giao dịch: {txRef}</p>
+          <p style={{ fontSize: 13, fontWeight: 400, color: "#94a3b8", lineHeight: 1.5, marginBottom: 6 }}>
+            Mã giao dịch
+          </p>
+          <p style={{ fontSize: 14, fontWeight: 600, color: "#334155", lineHeight: 1.5 }}>
+            {txRef}
+          </p>
         </div>
+
       </div>
     </div>
   );
 }
 
-/* ─── Page ─── */
+/* ─── Page export ─── */
 export default function PaymentSuccessPage() {
   const router = useRouter();
 
@@ -186,13 +252,13 @@ export default function PaymentSuccessPage() {
     orderId: "demo",
   });
 
-  const [timestamp] = useState(() => formatTimestamp());
+  const [timestamp] = useState<string>(formatTimestamp);
 
   useEffect(() => {
-    const stored = localStorage.getItem("lastTransaction");
-    if (stored) {
-      try { setTx(JSON.parse(stored)); } catch {}
-    }
+    try {
+      const stored = localStorage.getItem("lastTransaction");
+      if (stored) setTx(JSON.parse(stored));
+    } catch {}
 
     const t = setTimeout(() => {
       localStorage.setItem("plan", "pro");
@@ -207,7 +273,7 @@ export default function PaymentSuccessPage() {
 
   return (
     <>
-      {/* Desktop: phone frame centered on gray bg */}
+      {/* Desktop: centered phone preview */}
       <div
         className="hidden sm:flex min-h-screen items-center justify-center"
         style={{ backgroundColor: "#e5e5ea" }}
@@ -220,8 +286,8 @@ export default function PaymentSuccessPage() {
         </div>
       </div>
 
-      {/* Mobile: full screen */}
-      <div className="sm:hidden w-screen h-screen overflow-hidden">
+      {/* Mobile: full-screen */}
+      <div className="sm:hidden" style={{ width: "100vw", height: "100vh", overflow: "hidden" }}>
         {content}
       </div>
     </>

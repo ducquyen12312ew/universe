@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { QRCodeSVG } from "qrcode.react";
+import QRCode from "react-qr-code";
 import {
   STANDARD_PRICE_VND,
   BANK_NAME,
@@ -272,7 +272,7 @@ export default function VietQRPage() {
                         )}
                       </div>
                     ) : (
-                      <QRCodeSVG value={qrUrl} size={220} level="H" includeMargin={false} style={{ display: "block" }} />
+                      <QRCode value={qrUrl} size={220} level="H" style={{ display: "block" }} />
                     )}
                   </div>
 
