@@ -6,6 +6,11 @@ const DEMO_KEYS = [
   "currentUser",
   "upgradeCompleted",
   "paymentCompleted",
+  "ocb_balance",
+  "premium_activated",
+  "payment_completed",
+  "premium_plan",
+  "premium_date",
 ];
 
 export function resetDemo(): void {

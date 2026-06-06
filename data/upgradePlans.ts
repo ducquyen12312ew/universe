@@ -86,7 +86,7 @@ export const standardPaymentFeatures: string[] = [
 ];
 
 export const STANDARD_PRICE_USD = 21;
-export const STANDARD_PRICE_VND = 589000;
+export const STANDARD_PRICE_VND = 402607;
 export const BANK_NAME = "Ngân hàng TMCP Việt Nam Thịnh Vượng";
 export const ACCOUNT_NAME = "OVERLEAFS VN";
 export const PAYMENT_ACCOUNT = "9704229205090596006";

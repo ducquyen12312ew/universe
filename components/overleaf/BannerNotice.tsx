@@ -1,9 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { isPremium } from "@/lib/demoState";
 
 export default function BannerNotice() {
-  const [visible, setVisible] = useState(true);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    setVisible(!isPremium());
+    const refresh = () => setVisible(!isPremium());
+    window.addEventListener("storage", refresh);
+    return () => window.removeEventListener("storage", refresh);
+  }, []);
 
   if (!visible) return null;
 
@@ -23,11 +31,10 @@ export default function BannerNotice() {
           <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2Zm1 15h-2v-6h2v6Zm0-8h-2V7h2v2Z" />
         </svg>
         <p className="text-gray-200 text-xs leading-relaxed">
-          Why do Fortune 500 companies and top research institutions trust Overleaf to streamline their
-          collaboration?{" "}
-          <a href="#" onClick={(e) => e.preventDefault()} className="underline hover:text-white">
-            Get in touch to learn more.
-          </a>
+          Nâng cấp lên{" "}
+          <span className="text-white font-semibold">Overleaf Premium</span> với{" "}
+          <span className="text-blue-300 font-semibold">OCB OMNI</span> — thanh toán nhanh chóng,
+          an toàn và nhận kích hoạt ngay lập tức.
         </p>
       </div>
 
@@ -36,7 +43,7 @@ export default function BannerNotice() {
           className="px-3 py-1.5 text-xs border border-white/30 rounded text-white hover:bg-white/10 transition-colors whitespace-nowrap"
           onClick={() => {}}
         >
-          Contact sales
+          Tìm hiểu thêm
         </button>
         <button
           className="text-gray-400 hover:text-white transition-colors"
