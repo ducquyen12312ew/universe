@@ -5,7 +5,8 @@ export const PREMIUM_PLAN_KEY = "premium_plan";
 export const PREMIUM_DATE_KEY = "premium_date";
 
 export const OCB_DEPOSIT_AMOUNT = 402607;
-export const PLAN_PRICE_VND = 402607;
+export const OCB_DEPOSIT_AMOUNT_2 = 340000;
+export const PLAN_PRICE_VND = 340000;
 
 export function getBalance(): number {
   if (typeof window === "undefined") return 0;

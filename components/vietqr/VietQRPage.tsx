@@ -2,19 +2,87 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { setBalance, setPaymentCompleted, OCB_DEPOSIT_AMOUNT } from "@/lib/demoState";
+import { setBalance, setPaymentCompleted, OCB_DEPOSIT_AMOUNT, OCB_DEPOSIT_AMOUNT_2 } from "@/lib/demoState";
 import { formatVNDDot, generateTransactionId } from "@/data/upgradePlans";
 
 type ButtonState = "idle" | "processing" | "done";
 
+const AMOUNTS = [
+  { value: OCB_DEPOSIT_AMOUNT_2, label: "340.000 VNĐ", tag: "",         qr: "/image/qr2.png" },
+  { value: OCB_DEPOSIT_AMOUNT,   label: "402.607 VNĐ", tag: "Phổ biến", qr: "/image/qr.png"  },
+];
+
+/* ── Amount selector ── */
+function AmountSelector({
+  selected,
+  onChange,
+  disabled,
+}: {
+  selected: number;
+  onChange: (v: number) => void;
+  disabled: boolean;
+}) {
+  return (
+    <div className="flex gap-3 w-full max-w-sm mb-5">
+      {AMOUNTS.map(({ value, label, tag }) => {
+        const active = selected === value;
+        return (
+          <button
+            key={value}
+            disabled={disabled}
+            onClick={() => onChange(value)}
+            className="relative flex-1 flex flex-col items-center py-3 px-2 rounded-xl text-sm font-bold transition-all duration-200 disabled:cursor-not-allowed"
+            style={{
+              border: active ? "2px solid #0a6ebd" : "2px solid #e2e8f0",
+              background: active
+                ? "linear-gradient(135deg,#eff6ff,#dbeafe)"
+                : "#fff",
+              color: active ? "#1e40af" : "#6b7280",
+              boxShadow: active ? "0 4px 12px rgba(10,110,189,0.18)" : "none",
+              transform: active ? "translateY(-1px)" : "none",
+            }}
+          >
+            {tag && (
+              <span
+                className="absolute -top-2.5 left-1/2 -translate-x-1/2 px-2 py-0.5 text-[9px] font-bold rounded-full whitespace-nowrap"
+                style={{
+                  background: "linear-gradient(90deg,#0a6ebd,#4caf50)",
+                  color: "#fff",
+                }}
+              >
+                {tag}
+              </span>
+            )}
+            <span className="text-base font-black leading-tight">{label}</span>
+            {active && (
+              <span className="text-[10px] font-normal mt-0.5 text-blue-500">
+                Đang chọn
+              </span>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function VietQRPage() {
   const router = useRouter();
+  const [selectedAmount, setSelectedAmount] = useState(OCB_DEPOSIT_AMOUNT);
+  const selectedQr = AMOUNTS.find((a) => a.value === selectedAmount)?.qr ?? "/image/qr.png";
   const [btnState, setBtnState] = useState<ButtonState>("idle");
   const [progress, setProgress] = useState(0);
   const [transactionId] = useState(() => generateTransactionId());
   const triggered = useRef(false);
 
-  /* Progress bar animation during 10s */
+  /* Reset state when amount changes */
+  const handleAmountChange = (v: number) => {
+    if (btnState !== "idle") return;
+    setSelectedAmount(v);
+    triggered.current = false;
+  };
+
+  /* Progress bar during 10s */
   useEffect(() => {
     if (btnState !== "processing") return;
     const start = Date.now();
@@ -35,9 +103,8 @@ export default function VietQRPage() {
 
     setTimeout(() => {
       setBtnState("done");
-      setBalance(OCB_DEPOSIT_AMOUNT);
+      setBalance(selectedAmount);
       setPaymentCompleted();
-      /* Dispatch storage event so other tabs / components update */
       window.dispatchEvent(new Event("storage"));
       setTimeout(() => router.push("/apps/overleaf"), 1200);
     }, 10000);
@@ -45,13 +112,12 @@ export default function VietQRPage() {
 
   return (
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: "#f5f7fa" }}>
-      {/* Top bar — OCB branding */}
+      {/* Top bar */}
       <header
         className="flex items-center justify-between px-8 py-4 shrink-0"
         style={{ backgroundColor: "#fff", borderBottom: "1px solid #e8edf2" }}
       >
         <div className="flex items-center gap-3">
-          {/* OCB logo placeholder */}
           <div
             className="flex items-center gap-2 px-3 py-1.5 rounded-lg"
             style={{ background: "linear-gradient(135deg,#0a6ebd,#005299)" }}
@@ -65,13 +131,11 @@ export default function VietQRPage() {
           <span className="text-sm text-gray-500 font-medium">Cổng thanh toán</span>
         </div>
 
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-green-200 bg-green-50">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="#16a34a">
-              <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4Z" />
-            </svg>
-            <span className="text-[11px] font-semibold text-green-700">Bảo mật SSL</span>
-          </div>
+        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-green-200 bg-green-50">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="#16a34a">
+            <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4Z" />
+          </svg>
+          <span className="text-[11px] font-semibold text-green-700">Bảo mật SSL</span>
         </div>
       </header>
 
@@ -120,9 +184,9 @@ export default function VietQRPage() {
             {/* Amount breakdown */}
             <div className="border-t pt-4 mb-4" style={{ borderColor: "#f0f0f0" }}>
               <div className="flex justify-between items-center mb-2.5">
-                <span className="text-sm text-gray-500">Giá trị đơn hàng</span>
+                <span className="text-sm text-gray-500">Số tiền nạp</span>
                 <span className="text-sm text-gray-700">
-                  {formatVNDDot(OCB_DEPOSIT_AMOUNT)}đ
+                  {formatVNDDot(selectedAmount)}đ
                 </span>
               </div>
               <div className="flex justify-between items-center mb-2.5">
@@ -134,8 +198,8 @@ export default function VietQRPage() {
                 style={{ borderColor: "#f0f0f0" }}
               >
                 <span className="text-sm font-bold text-gray-800">Tổng thanh toán</span>
-                <span className="text-lg font-bold" style={{ color: "#0a6ebd" }}>
-                  {formatVNDDot(OCB_DEPOSIT_AMOUNT)}đ
+                <span className="text-lg font-bold transition-all duration-300" style={{ color: "#0a6ebd" }}>
+                  {formatVNDDot(selectedAmount)}đ
                 </span>
               </div>
             </div>
@@ -173,7 +237,6 @@ export default function VietQRPage() {
           {/* Right: QR */}
           <div className="flex-1 flex flex-col items-center">
             {btnState === "done" ? (
-              /* Success state */
               <div className="flex flex-col items-center justify-center flex-1 gap-5 py-10">
                 <div
                   className="w-20 h-20 rounded-full flex items-center justify-center"
@@ -190,12 +253,19 @@ export default function VietQRPage() {
               </div>
             ) : (
               <>
-                <h2 className="text-2xl font-bold text-gray-800 mb-2 self-start">
+                <h2 className="text-2xl font-bold text-gray-800 mb-1 self-start">
                   Quét QR để nạp tiền
                 </h2>
-                <p className="text-sm text-gray-500 mb-6 self-start">
-                  Sử dụng ứng dụng OCB OMNI để quét mã và hoàn tất giao dịch
+                <p className="text-sm text-gray-500 mb-5 self-start">
+                  Chọn mức nạp, sau đó dùng ứng dụng OCB OMNI quét mã
                 </p>
+
+                {/* Amount selector */}
+                <AmountSelector
+                  selected={selectedAmount}
+                  onChange={handleAmountChange}
+                  disabled={btnState === "processing"}
+                />
 
                 {/* QR Card */}
                 <div
@@ -206,7 +276,7 @@ export default function VietQRPage() {
                     boxShadow: "0 8px 32px rgba(0,0,0,0.08)",
                   }}
                 >
-                  {/* VietQR logo strip */}
+                  {/* Header strip */}
                   <div className="flex items-center gap-2 mb-4 self-stretch justify-between">
                     <img
                       src="/image/card/vietqr.png"
@@ -234,20 +304,17 @@ export default function VietQRPage() {
                       border: "1px solid #e2e8f0",
                     }}
                   >
-                    {/* Corner accents */}
                     {(["tl", "tr", "bl", "br"] as const).map((pos) => (
                       <div
                         key={pos}
                         className="absolute"
                         style={{
-                          width: 20,
-                          height: 20,
+                          width: 20, height: 20,
                           top: pos.includes("t") ? 6 : "auto",
                           bottom: pos.includes("b") ? 6 : "auto",
                           left: pos.includes("l") ? 6 : "auto",
                           right: pos.includes("r") ? 6 : "auto",
-                          borderColor: "#0a6ebd",
-                          borderStyle: "solid",
+                          borderColor: "#0a6ebd", borderStyle: "solid",
                           borderTopWidth: pos.includes("t") ? 2.5 : 0,
                           borderBottomWidth: pos.includes("b") ? 2.5 : 0,
                           borderLeftWidth: pos.includes("l") ? 2.5 : 0,
@@ -256,20 +323,16 @@ export default function VietQRPage() {
                         }}
                       />
                     ))}
-
                     <img
-                      src="/image/qr.png"
+                      src={selectedQr}
                       alt="QR Code OCB OMNI"
-                      className="block"
-                      style={{ width: 240, height: 240, objectFit: "contain" }}
+                      style={{ width: 240, height: 240, objectFit: "contain", display: "block" }}
                       onError={(e) => {
-                        /* Fallback placeholder if qr.png missing */
-                        const el = e.currentTarget;
-                        el.style.display = "none";
+                        e.currentTarget.style.display = "none";
                         const fb = document.createElement("div");
                         fb.style.cssText = "width:240px;height:240px;display:flex;align-items:center;justify-content:center;background:#f1f5f9;border-radius:8px;";
                         fb.innerHTML = '<span style="color:#94a3b8;font-size:13px;text-align:center;">QR Code<br/>sẽ hiện ở đây</span>';
-                        el.parentNode?.appendChild(fb);
+                        e.currentTarget.parentNode?.appendChild(fb);
                       }}
                     />
                   </div>
@@ -278,22 +341,22 @@ export default function VietQRPage() {
                   <p className="text-sm font-semibold text-gray-700 mb-1 text-center">
                     Quét mã bằng ứng dụng OCB OMNI
                   </p>
-                  <p className="text-xs text-gray-400 text-center mb-5">
+                  <p className="text-xs text-gray-400 text-center mb-4">
                     Mở app → Thanh toán → Quét QR
                   </p>
 
-                  {/* Amount badge */}
+                  {/* Amount badge — updates with selection */}
                   <div
-                    className="flex items-center justify-between w-full px-4 py-2.5 rounded-xl mb-5"
+                    className="flex items-center justify-between w-full px-4 py-2.5 rounded-xl mb-5 transition-all duration-300"
                     style={{ backgroundColor: "#f0f7ff", border: "1px solid #bfdbfe" }}
                   >
-                    <span className="text-sm text-blue-700 font-medium">Số tiền</span>
-                    <span className="text-base font-bold text-blue-900">
-                      {formatVNDDot(OCB_DEPOSIT_AMOUNT)}đ
+                    <span className="text-sm text-blue-700 font-medium">Số tiền nạp</span>
+                    <span className="text-base font-black text-blue-900 transition-all duration-300">
+                      {formatVNDDot(selectedAmount)}đ
                     </span>
                   </div>
 
-                  {/* Progress bar when processing */}
+                  {/* Progress bar */}
                   {btnState === "processing" && (
                     <div className="w-full mb-4">
                       <div className="flex justify-between text-xs text-gray-500 mb-1.5">
@@ -333,13 +396,7 @@ export default function VietQRPage() {
                   >
                     {btnState === "processing" ? (
                       <>
-                        <svg
-                          className="animate-spin"
-                          width="16"
-                          height="16"
-                          viewBox="0 0 24 24"
-                          fill="white"
-                        >
+                        <svg className="animate-spin" width="16" height="16" viewBox="0 0 24 24" fill="white">
                           <path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8Z" />
                         </svg>
                         Đang xác nhận giao dịch...
@@ -349,7 +406,7 @@ export default function VietQRPage() {
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
                           <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17Z" />
                         </svg>
-                        THANH TOÁN
+                        THANH TOÁN {formatVNDDot(selectedAmount)}đ
                       </>
                     )}
                   </button>
@@ -359,7 +416,6 @@ export default function VietQRPage() {
           </div>
         </div>
 
-        {/* Cancel link */}
         {btnState === "idle" && (
           <button
             onClick={() => router.push("/apps/overleaf/upgrade/payment")}
@@ -373,33 +429,15 @@ export default function VietQRPage() {
         )}
       </main>
 
-      {/* Footer */}
       <footer
         className="px-8 py-4 flex items-center justify-between"
         style={{ backgroundColor: "#fff", borderTop: "1px solid #e8edf2" }}
       >
-        <p className="text-xs text-gray-400">
-          © 2025 OCB OMNI · Hệ thống thanh toán trực tuyến
-        </p>
+        <p className="text-xs text-gray-400">© 2025 OCB OMNI · Hệ thống thanh toán trực tuyến</p>
         <div className="flex items-center gap-2">
-          <img
-            src="/image/card/visa.png"
-            alt="Visa"
-            className="h-5 object-contain opacity-60"
-            onError={(e) => (e.currentTarget.style.display = "none")}
-          />
-          <img
-            src="/image/card/mastercard.png"
-            alt="Mastercard"
-            className="h-5 object-contain opacity-60"
-            onError={(e) => (e.currentTarget.style.display = "none")}
-          />
-          <img
-            src="/image/card/vietqr.png"
-            alt="VietQR"
-            className="h-5 object-contain opacity-60"
-            onError={(e) => (e.currentTarget.style.display = "none")}
-          />
+          <img src="/image/card/visa.png" alt="Visa" className="h-5 object-contain opacity-60" onError={(e) => (e.currentTarget.style.display = "none")} />
+          <img src="/image/card/mastercard.png" alt="Mastercard" className="h-5 object-contain opacity-60" onError={(e) => (e.currentTarget.style.display = "none")} />
+          <img src="/image/card/vietqr.png" alt="VietQR" className="h-5 object-contain opacity-60" onError={(e) => (e.currentTarget.style.display = "none")} />
         </div>
       </footer>
     </div>
